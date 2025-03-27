@@ -1,0 +1,204 @@
+<!-- FUXA服务器配置节点 -->
+<script type="text/javascript">
+    RED.nodes.registerType('fuxa-server',{
+        category: 'config',
+        defaults: {
+            name: {value:""},
+            serverUrl: {value:"", required:true}
+        },
+        label: function() {
+            return this.name || this.serverUrl;
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="fuxa-server">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> 名称</label>
+        <input type="text" id="node-config-input-name" placeholder="服务器名称">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-serverUrl"><i class="fa fa-globe"></i> 服务器地址</label>
+        <input type="text" id="node-config-input-serverUrl" placeholder="http://localhost:1881">
+    </div>
+</script>
+
+<!-- FUXA主节点 -->
+<script type="text/javascript">
+    RED.nodes.registerType('fuxa',{
+        category: 'FUXA',
+        color: '#a6bbcf',
+        defaults: {
+            name: {value:""},
+            server: {type:"fuxa-server", required:true},
+            device: {value:""},
+            variable: {value:""}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "file.png",
+        label: function() {
+            return this.name||"FUXA";
+        },
+        oneditprepare: function() {
+            console.log('FUXA节点配置界面加载中...');
+            
+            var node = this;
+            var serverInput = $("#node-input-server");
+            var deviceInput = $("#node-input-device");
+            var variableInput = $("#node-input-variable");
+            var devices = {};
+
+            console.log('当前节点配置:', {
+                server: node.server,
+                device: node.device,
+                variable: node.variable
+            });
+
+            // 当服务器选择改变时更新设备列表
+            serverInput.on("change", function() {
+                var serverId = $(this).val();
+                console.log('服务器选择改变:', serverId);
+                var serverConfig = RED.nodes.node(serverId);
+                if (serverConfig) {
+                    console.log("服务器地址:", serverConfig.serverUrl);
+                    updateDeviceList(serverConfig.serverUrl);
+                }
+            });
+
+            // 当设备选择改变时更新变量列表
+            deviceInput.on("change", function() {
+                var deviceId = $(this).val();
+                console.log('设备选择改变:', deviceId);
+                if (deviceId && devices[deviceId]) {
+                    updateVariableList(devices[deviceId]);
+                } else {
+                    variableInput.empty();
+                }
+            });
+
+            // 获取设备列表并更新下拉框
+            function updateDeviceList(serverUrl) {
+                console.log('正在获取设备列表...');
+                if (!serverUrl) {
+                    deviceInput.empty();
+                    variableInput.empty();
+                    return;
+                }
+                
+                $.getJSON(serverUrl + '/api/project')
+                    .done(function(data) {
+                        console.log('获取到设备数据:', data);
+                        deviceInput.empty();
+                        variableInput.empty();
+                        devices = {};
+
+                        // 添加请选择选项
+                        deviceInput.append($('<option>', {
+                            value: "",
+                            text: "请选择设备..."
+                        }));
+
+                        // 遍历所有设备
+                        Object.values(data.devices).forEach(function(device) {
+                            if (device.tags) {
+                                devices[device.id] = device;
+                                deviceInput.append($('<option>', {
+                                    value: device.id,
+                                    text: device.name,
+                                    selected: node.device === device.id
+                                }));
+                            }
+                        });
+
+                        // 如果有预选的设备，更新变量列表
+                        if (node.device && devices[node.device]) {
+                            updateVariableList(devices[node.device]);
+                        }
+                    })
+                    .fail(function(err) {
+                        console.error("Error loading devices:", err);
+                        RED.notify("无法加载FUXA设备列表", "error");
+                    });
+            }
+
+            // 更新变量列表
+            function updateVariableList(device) {
+                variableInput.empty();
+                
+                // 添加请选择选项
+                variableInput.append($('<option>', {
+                    value: "",
+                    text: "请选择变量..."
+                }));
+
+                // 遍历设备的所有tag
+                Object.values(device.tags).forEach(function(tag) {
+                    variableInput.append($('<option>', {
+                        value: tag.id,
+                        text: tag.name,
+                        selected: node.variable === tag.id
+                    }));
+                });
+            }
+
+            // 初始加载
+            if (node.server) {
+                var initialServerConfig = RED.nodes.node(node.server);
+                if (initialServerConfig) {
+                    updateDeviceList(initialServerConfig.serverUrl);
+                }
+            }
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="fuxa">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> 名称</label>
+        <input type="text" id="node-input-name" placeholder="名称">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-globe"></i> 服务器</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-device"><i class="fa fa-microchip"></i> 设备</label>
+        <select type="text" id="node-input-device" style="width:70%">
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-variable"><i class="fa fa-list"></i> 变量</label>
+        <select type="text" id="node-input-variable" style="width:70%">
+        </select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="fuxa">
+    <p>FUXA节点配置</p>
+    <h3>配置</h3>
+    <dl class="message-properties">
+        <dt>服务器
+            <span class="property-type">config</span>
+        </dt>
+        <dd>选择FUXA服务器配置</dd>
+        <dt>变量
+            <span class="property-type">string</span>
+        </dt>
+        <dd>选择FUXA变量</dd>
+    </dl>
+    <h3>输入</h3>
+    <dl class="message-properties">
+        <dt>payload
+            <span class="property-type">string | buffer</span>
+        </dt>
+        <dd>要发送到FUXA服务器的数据</dd>
+    </dl>
+    <h3>输出</h3>
+    <dl class="message-properties">
+        <dt>payload
+            <span class="property-type">string | buffer</span>
+        </dt>
+        <dd>从FUXA服务器接收的数据</dd>
+    </dl>
+</script> 
