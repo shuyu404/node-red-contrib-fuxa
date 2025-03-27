@@ -1,5 +1,7 @@
 # NodeRed Contrib FUXA
 
+ [English](https://github.com/shuyu404/node-red-contrib-fuxa/blob/main/ReadME_EN.md)
+
 目前为Demo测试、插件编写并不规划。意义在于验证技术可行。后续会进行更加细致的更新。
 
 ## 使用方法
